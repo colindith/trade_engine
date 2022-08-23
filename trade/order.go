@@ -1,6 +1,6 @@
 package trade
 
-
+import "time"
 
 type Action int
 
@@ -9,13 +9,32 @@ const (
 	ACTION_SELL
 )
 
+var orderCounter = 1
+
 type Order struct {
-	action Action
-	price int64
-	quantity int32
-	limitPrice bool
+	orderID int
+	timestamp int64
+
+	Action Action
+	Price int
+	Quantity int
 }
 
-//func NewOrder() {
-//	return
-//}
+func NewEmptyOrder() *Order {
+	orderCounter += 1
+	return &Order{
+		orderID:   orderCounter,
+		timestamp: time.Now().UnixNano(),
+	}
+}
+
+func NewOrder(action Action, price int, quantity int) *Order {
+	orderCounter += 1
+	return &Order{
+		orderID:   orderCounter,
+		timestamp: time.Now().UnixNano(),
+		Action:    action,
+		Price:     price,
+		Quantity:  quantity,
+	}
+}
