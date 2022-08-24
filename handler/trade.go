@@ -23,7 +23,7 @@ func PlaceOrder(c *gin.Context) {
 	// parsing price query string
 	priceStr, ok := c.GetQuery("price")
 	if len(priceStr) == 0 || !ok {
-		order.SetPrice(0)
+		order.SetPrice(0)  // Use market price if input price is not specified. Else use limit price
 	} else {
 		price, err := strconv.Atoi(priceStr)
 		if err != nil {

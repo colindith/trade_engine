@@ -8,6 +8,8 @@ import (
 	"github.com/colindith/trade_engine/util"
 )
 
+const MAX_INT = int(^uint(0) >> 1)
+
 type Engine struct {
 	orderQueue chan *Order
 
@@ -90,6 +92,10 @@ func (e *Engine) processOrder(o *Order) {
 }
 
 func (e *Engine) processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap map[int]*list.List) {
+	if o.Price() == 0 {
+		// set market price
+		o.SetPrice(e.getMarketPrice(o.action))
+	}
 	counterOrderList, ok := counterOrderMap[o.Price()]
 	if ok {
 		for counterOrderList.Len() != 0 && o.RemainingQuantity() > 0 {
@@ -130,6 +136,33 @@ func (e *Engine) processOrderInner(o *Order, orderMap map[int]*list.List, counte
 		orderMap[o.Price()] = orderList
 	}
 	orderList.PushBack(o)
+}
+
+func (e *Engine) getMarketPrice(action Action) int {
+	if action == ACTION_BUY {
+		// try get max from sell_map
+		maxPrice := -MAX_INT-1
+		for price, orderList := range e.sellMap {
+			if price > maxPrice && orderList.Len() != 0 {
+				maxPrice = price
+			}
+		}
+		if maxPrice != -MAX_INT-1 {
+			return maxPrice
+		}
+	} else {
+		// try get min from buy_map
+		minPrice := MAX_INT
+		for price, orderList := range e.buyMap {
+			if price < minPrice && orderList.Len() != 0 {
+				minPrice = price
+			}
+		}
+		if minPrice != MAX_INT {
+			return minPrice
+		}
+	}
+	return 0
 }
 
 func (e *Engine) Stop() {
