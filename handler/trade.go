@@ -69,6 +69,7 @@ func PlaceOrder(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": success,
+		"order_id": order.OrderID(),
 	})
 }
 
@@ -77,8 +78,8 @@ type ListOrderResp struct {
 	Timestamp time.Time   `json:"timestamp,omitempty"`
 	Action string         `json:"action,omitempty"`
 	Price int             `json:"price,omitempty"`
-	Quantity int          `json:"quantity,omitempty"`
-	RemainingQuantity int `json:"remaining_quantity,omitempty"`
+	Quantity int          `json:"quantity"`
+	RemainingQuantity int `json:"remaining_quantity"`
 	Status string         `json:"status,omitempty"`
 }
 

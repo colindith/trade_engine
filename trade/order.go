@@ -124,15 +124,3 @@ func NewEmptyOrder() *Order {
 		timestamp: time.Now().UnixNano(),
 	}
 }
-
-func NewOrder(action Action, price int, quantity int) *Order {
-	orderCounter += 1
-	return &Order{
-		orderID:           orderCounter,
-		timestamp:         time.Now().UnixNano(),
-		action:            action,
-		price:             price,
-		quantity:          quantity,
-		remainingQuantity: quantity,
-	}
-}

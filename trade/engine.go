@@ -20,7 +20,7 @@ type Engine struct {
 	orders []*Order  // records all the ongoing/completed orders. Only used for displaying all orders
 	ordersLock sync.RWMutex
 
-	exit chan interface{}   // TODO: end the engine
+	exit chan interface{}
 }
 
 var engineObj = &Engine{}
