@@ -2,7 +2,6 @@ package trade
 
 import (
 	"container/list"
-	"fmt"
 	"log"
 	"sync"
 
@@ -36,13 +35,28 @@ func (e *Engine) PlaceOrder(order *Order) bool {
 	return true
 }
 
-// ListOrders list all the current orders
+// ListOrders list all the ongoing orders
 func (e *Engine) ListOrders() []*Order {
-	for price, orderList := range e.sellMap {
-		fmt.Println(price, orderList)
+	e.mapLock.RLock()
+	defer e.mapLock.RUnlock()
+	res := make([]*Order, 0, len(e.sellMap) + len(e.buyMap))
+	for _, orderList := range e.sellMap {
+		for e := orderList.Front(); e != nil; e = e.Next() {
+			if order, ok := e.Value.(*Order); ok {
+				res = append(res, order)
+			}
+		}
 	}
 
-	return []*Order{}
+	for _, orderList := range e.buyMap {
+		for e := orderList.Front(); e != nil; e = e.Next() {
+			if order, ok := e.Value.(*Order); ok {
+				res = append(res, order)
+			}
+		}
+	}
+
+	return res
 }
 
 // StartEngine starts the engine
@@ -87,18 +101,18 @@ func processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap ma
 				successfulQuantity := util.Min(order.Quantity, o.Quantity)
 				order.Quantity -= successfulQuantity
 				o.Quantity -= successfulQuantity
-				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.orderID, successfulQuantity, order.Price)
-				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.orderID, successfulQuantity, o.Price)
+				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.OrderID, successfulQuantity, order.Price)
+				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.OrderID, successfulQuantity, o.Price)
 				if order.Quantity == 0 {
 					orderList.Remove(orderList.Front())
-					log.Printf("[DEBUG] order_id: %v is done", order.orderID)
+					log.Printf("[DEBUG] order_id: %v is done", order.OrderID)
 				}
 			}
 		}
 	}
 
 	if o.Quantity == 0 {
-		log.Printf("[DEBUG] order_id: %v is done", o.orderID)
+		log.Printf("[DEBUG] order_id: %v is done", o.OrderID)
 		return
 	}
 	// remaining quantity not finished

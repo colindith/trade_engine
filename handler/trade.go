@@ -71,10 +71,9 @@ func PlaceOrder(c *gin.Context) {
 }
 
 func ListOrders(c *gin.Context) {
-
-	trade.GetEngine().ListOrders()
-
+	orders := trade.GetEngine().ListOrders()
+	// TODO: format the response
 	c.JSON(http.StatusOK, gin.H{
-		"message": "pong",
+		"orders": orders,
 	})
 }
