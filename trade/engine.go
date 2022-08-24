@@ -11,9 +11,12 @@ import (
 type Engine struct {
 	orderQueue chan *Order
 
-	buyMap map[int]*list.List
-	sellMap map[int]*list.List
+	buyMap map[int]*list.List   // all the ongoing "BUY" orders. The key represent the price of the orders
+	sellMap map[int]*list.List  // all the ongoing "SELL" orders. The key represent the price of the orders
 	mapLock sync.RWMutex
+
+	orders []*Order  // records all the ongoing/completed orders
+	ordersLock sync.RWMutex
 
 	exit chan interface{}
 }
@@ -95,28 +98,34 @@ func (e *Engine) processOrder(o *Order) {
 }
 
 func processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap map[int]*list.List) {
-	if orderList, ok := counterOrderMap[o.Price]; ok {
-		for orderList.Len() != 0 && o.Quantity > 0 {
-			if order, ok := orderList.Front().Value.(*Order); ok {
-				successfulQuantity := util.Min(order.Quantity, o.Quantity)
-				order.Quantity -= successfulQuantity
-				o.Quantity -= successfulQuantity
-				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.OrderID, successfulQuantity, order.Price)
-				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.OrderID, successfulQuantity, o.Price)
-				if order.Quantity == 0 {
-					orderList.Remove(orderList.Front())
-					log.Printf("[DEBUG] order_id: %v is done", order.OrderID)
-				}
-			}
+	counterOrderList, ok := counterOrderMap[o.Price]
+	if !ok {
+		// no orders that have the same price
+		return
+	}
+	for counterOrderList.Len() != 0 && o.RemainingQuantity > 0 {
+		order, ok := counterOrderList.Front().Value.(*Order)
+		if !ok {
+			log.Print("[ERROR] Order assertion error")
+			continue
+		}
+		successfulQuantity := util.Min(order.RemainingQuantity, o.RemainingQuantity)
+		order.RemainingQuantity -= successfulQuantity
+		o.RemainingQuantity -= successfulQuantity
+		log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.OrderID, successfulQuantity, order.Price)
+		log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.OrderID, successfulQuantity, o.Price)
+		if order.RemainingQuantity == 0 {
+			counterOrderList.Remove(counterOrderList.Front())
+			log.Printf("[DEBUG] order_id: %v is done", order.OrderID)
 		}
 	}
 
-	if o.Quantity == 0 {
+	if o.RemainingQuantity == 0 {
 		log.Printf("[DEBUG] order_id: %v is done", o.OrderID)
 		return
 	}
 	// remaining quantity not finished
-	// put it in buy map
+	// put it in the map
 	orderList, ok := orderMap[o.Price]
 	if !ok {
 		orderList = list.New()
@@ -124,3 +133,4 @@ func processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap ma
 	}
 	orderList.PushBack(o)
 }
+
