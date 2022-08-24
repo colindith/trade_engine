@@ -22,7 +22,7 @@ func PlaceOrder(c *gin.Context) {
 	// parsing price query string
 	priceStr, ok := c.GetQuery("price")
 	if len(priceStr) == 0 || !ok {
-		order.Price = 0
+		order.SetPrice(0)
 	} else {
 		price, err := strconv.Atoi(priceStr)
 		if err != nil {
@@ -31,7 +31,7 @@ func PlaceOrder(c *gin.Context) {
 			})
 			return
 		}
-		order.Price = price
+		order.SetPrice(price)
 	}
 
 	// parsing quantity query string
@@ -49,13 +49,14 @@ func PlaceOrder(c *gin.Context) {
 		})
 		return
 	}
-	order.Quantity = quantity
+	order.SetQuantity(quantity)
+	order.SetRemainingQuantity(quantity)
 
 	action, _ := c.GetQuery("action")
 	if strings.EqualFold(action, "buy") {
-		order.Action = trade.ACTION_BUY
+		order.SetAction(trade.ACTION_BUY)
 	} else if strings.EqualFold(action, "sell") {
-		order.Action = trade.ACTION_SELL
+		order.SetAction(trade.ACTION_SELL)
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid action",

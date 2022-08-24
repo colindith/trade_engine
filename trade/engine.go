@@ -87,50 +87,55 @@ func (e *Engine) StartEngine() {
 func (e *Engine) processOrder(o *Order) {
 	e.mapLock.Lock()
 	defer e.mapLock.Unlock()
-	if o.Action == ACTION_BUY {
+	if o.Action() == ACTION_BUY {
 		processOrderInner(o, e.buyMap, e.sellMap)
-	} else if o.Action == ACTION_SELL {
+	} else if o.Action() == ACTION_SELL {
 		// invert sellMap and buyMap
 		processOrderInner(o, e.sellMap, e.buyMap)
 	} else {
-		log.Printf("[ERROR] Invalid action: %v", o.Action)
+		log.Printf("[ERROR] Invalid action: %v", o.Action())
 	}
 }
 
 func processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap map[int]*list.List) {
-	counterOrderList, ok := counterOrderMap[o.Price]
-	if !ok {
-		// no orders that have the same price
-		return
-	}
-	for counterOrderList.Len() != 0 && o.RemainingQuantity > 0 {
-		order, ok := counterOrderList.Front().Value.(*Order)
-		if !ok {
-			log.Print("[ERROR] Order assertion error")
-			continue
-		}
-		successfulQuantity := util.Min(order.RemainingQuantity, o.RemainingQuantity)
-		order.RemainingQuantity -= successfulQuantity
-		o.RemainingQuantity -= successfulQuantity
-		log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.OrderID, successfulQuantity, order.Price)
-		log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.OrderID, successfulQuantity, o.Price)
-		if order.RemainingQuantity == 0 {
-			counterOrderList.Remove(counterOrderList.Front())
-			log.Printf("[DEBUG] order_id: %v is done", order.OrderID)
+	counterOrderList, ok := counterOrderMap[o.Price()]
+	if ok {
+		for counterOrderList.Len() != 0 && o.RemainingQuantity() > 0 {
+			order, ok := counterOrderList.Front().Value.(*Order)
+			if !ok {
+				log.Print("[ERROR] Order assertion error")
+				continue
+			}
+
+			func() {
+				order.mu.Lock()
+				defer order.mu.Unlock()
+				o.mu.Lock()
+				defer o.mu.Unlock()
+
+				successfulQuantity := util.Min(order.remainingQuantity, o.remainingQuantity)
+				order.remainingQuantity -= successfulQuantity
+				o.remainingQuantity -= successfulQuantity
+				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.orderID, successfulQuantity, order.price)
+				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.orderID, successfulQuantity, o.price)
+				if order.remainingQuantity == 0 {
+					counterOrderList.Remove(counterOrderList.Front())
+					log.Printf("[DEBUG] order_id: %v is done", order.orderID)
+				}
+			}()
 		}
 	}
 
-	if o.RemainingQuantity == 0 {
-		log.Printf("[DEBUG] order_id: %v is done", o.OrderID)
+	if o.RemainingQuantity() == 0 {
+		log.Printf("[DEBUG] order_id: %v is done", o.OrderID())
 		return
 	}
 	// remaining quantity not finished
 	// put it in the map
-	orderList, ok := orderMap[o.Price]
+	orderList, ok := orderMap[o.Price()]
 	if !ok {
 		orderList = list.New()
-		orderMap[o.Price] = orderList
+		orderMap[o.Price()] = orderList
 	}
 	orderList.PushBack(o)
 }
-
