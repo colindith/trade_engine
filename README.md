@@ -115,6 +115,8 @@ If it is, the Engine will let the transaction happen between these two orders.
 If the quantity of these two orders are different, let's say, the quantity of the buying order is more than the quantity of the selling order,
 then the remaining buying order will be written back the buyMap and waiting for next selling order that has the same price. 
 
+Once an order is completed, it will be popped from the front of the list in the map. In order to do so, we use the linked list to store the orders.
+
 The map in Go is not thread-safe, so whenever we try access the `sellMap` or `buyMap`, it is necessary to acquire the mutex lock first.
 ```go
 type Engine struct {
