@@ -15,10 +15,10 @@ type Engine struct {
 	sellMap map[int]*list.List  // all the ongoing "SELL" orders. The key represent the price of the orders
 	mapLock sync.RWMutex
 
-	orders []*Order  // records all the ongoing/completed orders
+	orders []*Order  // records all the ongoing/completed orders. Only used for displaying all orders
 	ordersLock sync.RWMutex
 
-	exit chan interface{}
+	exit chan interface{}   // TODO: end the engine
 }
 
 var engineObj = &Engine{}
@@ -34,31 +34,23 @@ func (e *Engine) PlaceOrder(order *Order) bool {
 		log.Print("[ERROR] trade engine not init")
 		return false
 	}
+
+	e.ordersLock.Lock()
+	defer e.ordersLock.Unlock()
+	e.orders = append(e.orders, order)
+
 	e.orderQueue <- order
 	return true
 }
 
 // ListOrders list all the ongoing orders
 func (e *Engine) ListOrders() []*Order {
-	e.mapLock.RLock()
-	defer e.mapLock.RUnlock()
-	res := make([]*Order, 0, len(e.sellMap) + len(e.buyMap))
-	for _, orderList := range e.sellMap {
-		for e := orderList.Front(); e != nil; e = e.Next() {
-			if order, ok := e.Value.(*Order); ok {
-				res = append(res, order)
-			}
-		}
+	e.ordersLock.RLock()
+	defer e.ordersLock.RUnlock()
+	res := make([]*Order, 0, len(e.orders))
+	for _, order := range e.orders {
+		res = append(res, order)
 	}
-
-	for _, orderList := range e.buyMap {
-		for e := orderList.Front(); e != nil; e = e.Next() {
-			if order, ok := e.Value.(*Order); ok {
-				res = append(res, order)
-			}
-		}
-	}
-
 	return res
 }
 
@@ -75,12 +67,12 @@ func (e *Engine) StartEngine() {
 		for {
 			select {
 			case <- e.exit:
+				log.Print("[INFO] Quit trade engine")
 				return
 			case o := <- e.orderQueue:
 				e.processOrder(o)
 			}
 		}
-		log.Print("[INFO] Quit trade engine")
 	}()
 }
 
@@ -88,16 +80,16 @@ func (e *Engine) processOrder(o *Order) {
 	e.mapLock.Lock()
 	defer e.mapLock.Unlock()
 	if o.Action() == ACTION_BUY {
-		processOrderInner(o, e.buyMap, e.sellMap)
+		e.processOrderInner(o, e.buyMap, e.sellMap)
 	} else if o.Action() == ACTION_SELL {
 		// invert sellMap and buyMap
-		processOrderInner(o, e.sellMap, e.buyMap)
+		e.processOrderInner(o, e.sellMap, e.buyMap)
 	} else {
 		log.Printf("[ERROR] Invalid action: %v", o.Action())
 	}
 }
 
-func processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap map[int]*list.List) {
+func (e *Engine) processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap map[int]*list.List) {
 	counterOrderList, ok := counterOrderMap[o.Price()]
 	if ok {
 		for counterOrderList.Len() != 0 && o.RemainingQuantity() > 0 {
@@ -116,8 +108,8 @@ func processOrderInner(o *Order, orderMap map[int]*list.List, counterOrderMap ma
 				successfulQuantity := util.Min(order.remainingQuantity, o.remainingQuantity)
 				order.remainingQuantity -= successfulQuantity
 				o.remainingQuantity -= successfulQuantity
-				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", order.orderID, successfulQuantity, order.price)
-				log.Printf("[DEBUG] order_id: %v successfully trade %v at price %v", o.orderID, successfulQuantity, o.price)
+				log.Printf("[DEBUG] order_id: %v successfully %v %v at price %v", order.orderID, order.GetActionRep(), successfulQuantity, order.price)
+				log.Printf("[DEBUG] order_id: %v successfully %v %v at price %v", o.orderID, o.GetActionRep(), successfulQuantity, o.price)
 				if order.remainingQuantity == 0 {
 					counterOrderList.Remove(counterOrderList.Front())
 					log.Printf("[DEBUG] order_id: %v is done", order.orderID)

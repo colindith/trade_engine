@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -71,10 +72,31 @@ func PlaceOrder(c *gin.Context) {
 	})
 }
 
+type ListOrderResp struct {
+	OrderID int           `json:"order_id,omitempty"`
+	Timestamp time.Time   `json:"timestamp,omitempty"`
+	Action string         `json:"action,omitempty"`
+	Price int             `json:"price,omitempty"`
+	Quantity int          `json:"quantity,omitempty"`
+	RemainingQuantity int `json:"remaining_quantity,omitempty"`
+	Status string         `json:"status,omitempty"`
+}
+
 func ListOrders(c *gin.Context) {
 	orders := trade.GetEngine().ListOrders()
-	// TODO: format the response
+	res := make([]*ListOrderResp, 0, len(orders))
+	for _, order := range orders {
+		res = append(res, &ListOrderResp{
+			OrderID:           order.OrderID(),
+			Timestamp:         time.Unix(order.Timestamp() / 1e9, 0),
+			Action:            order.GetActionRep(),
+			Price:             order.Price(),
+			Quantity:          order.Quantity(),
+			RemainingQuantity: order.RemainingQuantity(),
+			Status:            order.GetStatus(),
+		})
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"orders": orders,
+		"orders": res,
 	})
 }

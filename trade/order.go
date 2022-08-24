@@ -12,7 +12,7 @@ const (
 	ACTION_SELL
 )
 
-var orderCounter = 1
+var orderCounter = 0    // counter for the order_id
 
 type Order struct {
 	mu sync.RWMutex
@@ -63,6 +63,15 @@ func (o *Order) SetAction(action Action) {
 	o.action = action
 }
 
+func (o *Order) GetActionRep() string {
+	if o.action == ACTION_SELL {
+		return "sell"
+	} else if o.action == ACTION_BUY {
+		return "buy"
+	}
+	return ""
+}
+
 func (o *Order) Price() int {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
@@ -97,6 +106,15 @@ func (o *Order) SetRemainingQuantity(value int) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.remainingQuantity = value
+}
+
+func (o *Order) GetStatus() string {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	if o.remainingQuantity == 0 {
+		return "completed"
+	}
+	return "ongoing"
 }
 
 func NewEmptyOrder() *Order {
