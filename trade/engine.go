@@ -131,3 +131,7 @@ func (e *Engine) processOrderInner(o *Order, orderMap map[int]*list.List, counte
 	}
 	orderList.PushBack(o)
 }
+
+func (e *Engine) Stop() {
+	e.exit <- true
+}

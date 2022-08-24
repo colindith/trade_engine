@@ -11,6 +11,7 @@ import (
 
 func main() {
 	trade.GetEngine().StartEngine()
+	defer trade.GetEngine().Stop()
 
 	r := gin.Default()
 	r.GET("/ping", handler.Ping)
